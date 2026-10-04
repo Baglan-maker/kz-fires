@@ -1,0 +1,20 @@
+services:
+  db:
+    # postgis/postgis не публикует arm64; imresamu/postgis — мультиархитектурная сборка того же Dockerfile
+    image: imresamu/postgis:17-3.5
+    environment:
+      POSTGRES_DB: kzfires
+      POSTGRES_USER: kzfires
+      POSTGRES_PASSWORD: kzfires
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kzfires -d kzfires"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
