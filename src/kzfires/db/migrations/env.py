@@ -6,7 +6,8 @@ from kzfires.db.session import sqlalchemy_url
 
 
 def run_migrations_online() -> None:
-    engine = create_engine(sqlalchemy_url(load_settings().database_url), poolclass=pool.NullPool)
+    url = context.config.get_main_option("sqlalchemy.url") or load_settings().database_url
+    engine = create_engine(sqlalchemy_url(url), poolclass=pool.NullPool)
     with engine.connect() as connection:
         context.configure(connection=connection, target_metadata=None)
         with context.begin_transaction():

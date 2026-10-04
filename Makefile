@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup db-up db-down migrate test lint fmt ingest retro
+.PHONY: setup db-up db-down migrate border test lint fmt ingest retro
 
 setup:
 	python3.12 -m venv .venv
@@ -16,6 +16,10 @@ db-down:
 
 migrate:
 	$(PY) -m alembic upgrade head
+
+border:
+	$(PY) scripts/build_border.py
+	$(PY) -m kzfires.cli border
 
 test:
 	$(PY) -m pytest

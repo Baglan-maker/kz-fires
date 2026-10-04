@@ -7,6 +7,23 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      db:
+        image: imresamu/postgis:17-3.5
+        env:
+          POSTGRES_DB: kzfires
+          POSTGRES_USER: kzfires
+          POSTGRES_PASSWORD: kzfires
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kzfires -d kzfires"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql://kzfires:kzfires@localhost:5432/kzfires
+      REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
