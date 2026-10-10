@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Разметка точек</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd6;
+    --accent: #1f5fbf; --accent-soft: #e3ecfa; --warn: #a15c00; --warn-soft: #fff3df;
+    --c1: #2e7d32; --c2: #b8860b; --c3: #6a1b9a; --c4: #546e7a;
+    --img: clamp(200px, 27vh, 330px);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+           background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  .progress { flex: 1; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .progress div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  .muted { color: var(--muted); }
+  .timer { font-variant-numeric: tabular-nums; }
+  main { display: grid; grid-template-columns: auto 360px; gap: 16px; padding: 14px 16px 230px; }
+  .images { display: grid; grid-template-columns: repeat(3, var(--img)); gap: 10px 12px; align-content: start; }
+  figure { margin: 0; }
+  figcaption { font-size: 12px; color: var(--muted); margin-bottom: 3px; min-height: 2.9em; }
+  figcaption b { color: var(--text); font-weight: 600; }
+  .frame { position: relative; width: var(--img); height: var(--img); background: #ddd; border-radius: 4px; overflow: hidden; }
+  .frame img { width: 100%; height: 100%; display: block; image-rendering: auto; }
+  .frame .fp { position: absolute; left: 43.75%; top: 43.75%; width: 12.5%; height: 12.5%;
+               border: 1.5px solid #ffe14d; box-shadow: 0 0 0 1px rgba(0,0,0,.55); pointer-events: none; }
+  .frame .none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted);
+                 text-align: center; padding: 12px; font-size: 13px; }
+  .dnbr-col { grid-row: span 2; }
+  .legend { display: flex; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 6px; align-items: center; flex-wrap: wrap; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 3px; }
+  aside { display: flex; flex-direction: column; gap: 12px; }
+  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .box h2 { font-size: 13px; margin: 0 0 6px; font-weight: 600; }
+  .kv { display: grid; grid-template-columns: 120px 1fr; gap: 3px 8px; font-size: 13px; }
+  .kv div:nth-child(odd) { color: var(--muted); }
+  .hint { background: var(--warn-soft); border-color: #f0d9b0; }
+  .warn { color: var(--warn); }
+  .cheat { font-size: 13px; }
+  .cheat ol { margin: 0; padding-left: 18px; }
+  .cheat li { margin-bottom: 6px; }
+  .cheat.hidden ol { display: none; }
+  a { color: var(--accent); }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+           padding: 10px 16px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 18px; align-items: start; }
+  .group-title { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { font: inherit; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button kbd { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); margin-right: 4px; }
+  button.on { background: var(--accent-soft); border-color: var(--accent); }
+  button.cls.on[data-v="1"] { background: #e3f1e4; border-color: var(--c1); }
+  button.cls.on[data-v="2"] { background: #f8efd6; border-color: var(--c2); }
+  button.cls.on[data-v="3"] { background: #efe2f3; border-color: var(--c3); }
+  button.cls.on[data-v="4"] { background: #e6ecef; border-color: var(--c4); }
+  .tag { font-size: 12px; padding: 4px 8px; }
+  #evidence { width: 100%; margin-top: 6px; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
+  .save { background: var(--accent); color: #fff; border-color: var(--accent); padding: 9px 16px; font-weight: 600; }
+  .save:disabled { opacity: .45; cursor: default; }
+  .msg { font-size: 12px; min-height: 1.2em; margin-top: 4px; }
+  .loading { padding: 40px; color: var(--muted); font-size: 15px; }
+  .done { padding: 60px 16px; text-align: center; font-size: 16px; }
+  @media (max-width: 1250px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Разметка</h1>
+  <span id="count" class="muted"></span>
+  <div class="progress"><div id="bar"></div></div>
+  <span class="muted">время на точку: <span id="timer" class="timer">0:00</span></span>
+</header>
+
+<div id="app"><div class="loading">Загружаю…</div></div>
+
+<template id="tpl">
+<main>
+  <section>
+    <div class="images">
+      <figure><figcaption id="cap-pre-rgb"></figcaption><div class="frame" data-img="pre_rgb"></div></figure>
+      <figure><figcaption id="cap-pre-swir"></figcaption><div class="frame" data-img="pre_swir"></div></figure>
+      <figure class="dnbr-col"><figcaption id="cap-dnbr"></figcaption><div class="frame" data-img="dnbr"></div>
+        <div class="legend">
+          <span><span class="sw" style="background:#c81414"></span>потемнело</span>
+          <span><span class="sw" style="background:#c8c8c8"></span>без изменений</span>
+          <span><span class="sw" style="background:#1e963c"></span>позеленело</span>
+          <span><span class="sw" style="background:#3c3c3c"></span>облака, нет данных</span>
+        </div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Жёлтый квадрат в центре — пиксель спутника VIIRS (375 м), где NASA увидело тепло. Окно — 3 × 3 км.</p>
+      </figure>
+      <figure><figcaption id="cap-post-rgb"></figcaption><div class="frame" data-img="post_rgb"></div></figure>
+      <figure><figcaption id="cap-post-swir"></figcaption><div class="frame" data-img="post_swir"></div></figure>
+    </div>
+  </section>
+  <aside>
+    <div class="box hint" id="hint-box" hidden><h2>Подсказка тренировки</h2><div id="hint"></div></div>
+    <div class="box"><h2>Точка</h2><div class="kv" id="facts"></div></div>
+    <div class="box cheat" id="cheat">
+      <h2>Шпаргалка <span class="muted" style="font-weight:400">(клавиша H — скрыть/показать)</span></h2>
+      <ol>
+        <li><b>Главный вопрос:</b> на снимке «после» появилось тёмное пятно, которого не было «до»?
+          Да — это 1 или 2. Нет, и рядом промышленность — 3. Не видно (облака, нет снимка) — 4.</li>
+        <li><b>1 или 2 — по форме пятна.</b> Поле: края прямые, прямоугольник или полосы, вокруг сетка полей,
+          тип земли «пашня». Степь, лес, тростник: края рваные, пятно как клякса.</li>
+        <li><b>3:</b> «до» и «после» одинаковые, пятна нет. Светлые квадратные площадки, дороги к ним, трубы,
+          цистерны, здания. Смотри строку «промобъекты» и ссылку «спутник Google».</li>
+        <li><b>Инфракрасный снимок:</b> живая растительность зелёная, гарь тёмно-бурая или бордовая, вода чёрная.</li>
+        <li><b>Осторожно:</b> dNBR растёт и от уборки урожая. Убранное поле на обычном снимке светлое, гарь — тёмная.</li>
+        <li><b>Не уверен</b> — ставь 4 или уверенность 1. Честное «неясно» лучше угадывания.</li>
+      </ol>
+    </div>
+  </aside>
+</main>
+</template>
+
+<footer id="footer" hidden>
+  <div>
+    <div class="group-title">Класс</div>
+    <div class="btns" id="classes">
+      <button class="cls" data-v="1"><kbd>1</kbd>пожар в степи / лесу</button>
+      <button class="cls" data-v="2"><kbd>2</kbd>пал на поле</button>
+      <button class="cls" data-v="3"><kbd>3</kbd>завод / факел</button>
+      <button class="cls" data-v="4"><kbd>4</kbd>неясно</button>
+    </div>
+  </div>
+  <div>
+    <div class="group-title">Уверенность</div>
+    <div class="btns" id="confs">
+      <button class="conf" data-v="1"><kbd>Q</kbd>сомневаюсь</button>
+      <button class="conf" data-v="2"><kbd>W</kbd>скорее да</button>
+      <button class="conf" data-v="3"><kbd>E</kbd>точно</button>
+    </div>
+  </div>
+  <div>
+    <div class="group-title">Улики (по желанию)</div>
+    <div class="btns" id="tags"></div>
+    <input id="evidence" placeholder="своими словами, например: пятно справа, края ровные" autocomplete="off">
+  </div>
+  <div style="text-align:right">
+    <div class="btns" style="justify-content:flex-end">
+      <button id="back"><kbd>←</kbd>назад</button>
+      <button id="save" class="save" disabled>сохранить <kbd style="color:#dfe8f7">Enter</kbd></button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+</footer>
+
+<script>
+const TAGS = ["пятно появилось", "пятна нет", "прямые края", "рваные края",
+              "промышленность рядом", "убранное поле", "облака или дым", "нет снимка"];
+const $ = (s, el = document) => el.querySelector(s);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* приватный режим — не страшно */ } },
+};
+let state = null, cur = null, sel = { cls: null, conf: null, tags: new Set() };
+let shownAt = 0, hiddenFor = 0, hiddenSince = null, tick = null;
+
+function fmtNum(x, d = 2) { return x == null ? "—" : x.toFixed(d).replace(".", ","); }
+function fmtTime(iso, tz) {
+  return new Date(iso).toLocaleString("ru-RU", { timeZone: tz, day: "2-digit", month: "2-digit",
+    year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function seconds() {
+  const hidden = hiddenFor + (hiddenSince ? performance.now() - hiddenSince : 0);
+  return Math.max(0, (performance.now() - shownAt - hidden) / 1000);
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) hiddenSince = performance.now();
+  else if (hiddenSince) { hiddenFor += performance.now() - hiddenSince; hiddenSince = null; }
+});
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" },
+                                       body: JSON.stringify(body) } : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+function header() {
+  const s = state;
+  const kind = s.practice ? "тренировка" : s.set.toUpperCase();
+  $("#title").textContent = `Разметка · ${kind} · проход ${s.pass}`;
+  const pos = cur ? s.order.indexOf(cur.label_id) + 1 : s.done;
+  $("#count").textContent = `точка ${pos} из ${s.total} · размечено ${s.done}`;
+  $("#bar").style.width = `${(100 * s.done / Math.max(1, s.total)).toFixed(1)}%`;
+}
+
+function sceneCaption(tag, kind, sc) {
+  const when = tag === "pre" ? "До" : "После";
+  const what = kind === "rgb" ? "обычный цвет" : "инфракрасный";
+  if (!sc) return `<b>${when}</b> · ${what}<br>снимка нет`;
+  const cloud = sc.clear ? `облака над точкой ${fmtNum(sc.footprint_cloud, 0)} %`
+                         : `<span class="warn">облачно над точкой: ${fmtNum(sc.footprint_cloud, 0)} %</span>`;
+  return `<b>${when}</b> · ${what} · ${sc.date}<br>${cloud}`;
+}
+
+function frame(el, card, name) {
+  el.innerHTML = "";
+  if (card && card.images.includes(name)) {
+    const img = new Image();
+    img.src = `/img/${card.label_id}/${name}.png`;
+    el.appendChild(img);
+    const fp = document.createElement("div"); fp.className = "fp"; el.appendChild(fp);
+  } else {
+    el.innerHTML = `<div class="none">нет снимка<br>для этой даты</div>`;
+  }
+}
+
+function facts(p) {
+  const c = p.card || {};
+  const rows = [
+    ["Пролёт (UTC)", fmtTime(p.acq_at, "UTC")],
+    ["Пролёт (Алматы)", fmtTime(p.acq_at, "Asia/Almaty")],
+    ["Координаты", `${p.lat}, ${p.lon}`],
+  ];
+  if (c.worldcover) {
+    rows.push(["Тип земли", (c.worldcover.shares || []).map(s => `${s.name} ${s.pct} %`).join(", ") || "—"]);
+  }
+  if (c.settlement) rows.push(["Ближайший посёлок", `${c.settlement.name || "без названия"}, ${fmtNum(c.settlement.km, 1)} км`]);
+  if (c.industry) {
+    const n = c.industry;
+    rows.push(["Промобъекты OSM", `${n.count_within} в радиусе ${n.radius_km} км; ближайший: ${n.name || n.kind}, ${fmtNum(n.km, 1)} км`]);
+  }
+  if (c.links) rows.push(["Посмотреть", `<a href="${c.links.google}" target="_blank" rel="noopener">спутник Google</a> · <a href="${c.links.osm}" target="_blank" rel="noopener">карта OSM</a>`]);
+  if (p.error) rows.push(["Ошибка", `<span class="warn">снимки не загрузились (${p.error}). Можно поставить 4.</span>`]);
+  $("#facts").innerHTML = rows.map(([k, v]) => `<div>${k}</div><div>${v}</div>`).join("");
+}
+
+function renderSel() {
+  document.querySelectorAll("#classes button").forEach(b => b.classList.toggle("on", +b.dataset.v === sel.cls));
+  document.querySelectorAll("#confs button").forEach(b => b.classList.toggle("on", +b.dataset.v === sel.conf));
+  document.querySelectorAll("#tags button").forEach(b => b.classList.toggle("on", sel.tags.has(b.dataset.t)));
+  $("#save").disabled = !(sel.cls && sel.conf);
+}
+
+async function show(id) {
+  clearInterval(tick);
+  const app = $("#app");
+  app.innerHTML = `<div class="loading">Загружаю снимки… Обычно это мгновенно; если точка ещё не готова — до 15 секунд.</div>`;
+  $("#footer").hidden = true;
+  cur = await api(`/api/point?id=${encodeURIComponent(id)}`);
+  header();
+  app.innerHTML = $("#tpl").innerHTML;
+  const c = cur.card;
+  for (const el of app.querySelectorAll(".frame")) frame(el, c, el.dataset.img);
+  $("#cap-pre-rgb").innerHTML = sceneCaption("pre", "rgb", c && c.pre);
+  $("#cap-pre-swir").innerHTML = sceneCaption("pre", "swir", c && c.pre);
+  $("#cap-post-rgb").innerHTML = sceneCaption("post", "rgb", c && c.post);
+  $("#cap-post-swir").innerHTML = sceneCaption("post", "swir", c && c.post);
+  $("#cap-dnbr").innerHTML = `<b>Насколько потемнело (dNBR)</b><br>в квадрате: ${c && c.dnbr != null ? fmtNum(c.dnbr) : "не посчитать"}`;
+  facts(cur);
+  if (cur.hint) { $("#hint-box").hidden = false; $("#hint").textContent = cur.hint; }
+  if (store.get("cheatHidden") === "1") $("#cheat").classList.add("hidden");
+
+  const m = cur.my_label;
+  sel = { cls: m ? +m.class : null, conf: m ? +m.label_confidence : null, tags: new Set() };
+  const ev = $("#evidence"); ev.value = "";
+  if (m && m.evidence) {
+    for (const t of TAGS) if (m.evidence.includes(t)) sel.tags.add(t);
+    ev.value = m.evidence.split(";").map(s => s.trim()).filter(s => s && !TAGS.includes(s)).join("; ");
+  }
+  $("#msg").textContent = m ? "Эта точка уже размечена. Сохранение запишет исправление." : (state.warning || "");
+  $("#msg").className = "msg" + (state.warning && !m ? " warn" : "");
+  renderSel();
+  $("#footer").hidden = false;
+  shownAt = performance.now(); hiddenFor = 0; hiddenSince = document.hidden ? performance.now() : null;
+  tick = setInterval(() => {
+    const s = Math.round(seconds());
+    $("#timer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }, 500);
+}
+
+async function save() {
+  if (!(sel.cls && sel.conf) || !cur) return;
+  const free = $("#evidence").value.trim();
+  const evidence = [...sel.tags, ...(free ? [free] : [])].join("; ");
+  try {
+    state = await api("/api/label", { label_id: cur.label_id, class: sel.cls,
+      label_confidence: sel.conf, evidence, seconds_spent: seconds() });
+  } catch (e) { $("#msg").textContent = `Не сохранилось: ${e.message}`; $("#msg").className = "msg warn"; return; }
+  next();
+}
+
+function next() {
+  if (state.next) show(state.next);
+  else {
+    clearInterval(tick); cur = null; header();
+    $("#footer").hidden = true;
+    $("#app").innerHTML = `<div class="done"><b>Готово: размечено ${state.done} из ${state.total}.</b><br>
+      <span class="muted">${state.practice ? "Тренировка закончена. Можно переходить к настоящей разметке." :
+      "Метки сохранены в файл. Страницу можно закрыть, а сервер остановить клавишами Ctrl+C в терминале."}</span></div>`;
+  }
+}
+
+function back() {
+  if (!cur) { if (state.order.length) show(state.order[state.order.length - 1]); return; }
+  const i = state.order.indexOf(cur.label_id);
+  if (i > 0) show(state.order[i - 1]);
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.classList.contains("cls")) sel.cls = +b.dataset.v;
+  else if (b.classList.contains("conf")) sel.conf = +b.dataset.v;
+  else if (b.classList.contains("tag")) { sel.tags.has(b.dataset.t) ? sel.tags.delete(b.dataset.t) : sel.tags.add(b.dataset.t); }
+  else if (b.id === "save") return save();
+  else if (b.id === "back") return back();
+  renderSel();
+});
+
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const typing = document.activeElement && document.activeElement.id === "evidence";
+  if (e.key === "Enter") { e.preventDefault(); return save(); }
+  if (typing) { if (e.key === "Escape") document.activeElement.blur(); return; }
+  // event.code не зависит от раскладки: Q работает и при русской «Й»
+  const cls = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4 }[e.code];
+  const conf = { KeyQ: 1, KeyW: 2, KeyE: 3 }[e.code];
+  if (cls) sel.cls = cls;
+  else if (conf) sel.conf = conf;
+  else if (e.code === "ArrowLeft" || e.code === "Backspace") { e.preventDefault(); return back(); }
+  else if (e.code === "ArrowRight") { if (state.next && cur && cur.label_id !== state.next) show(state.next); return; }
+  else if (e.code === "KeyH") {
+    const c = $("#cheat"); if (c) { c.classList.toggle("hidden");
+      store.set("cheatHidden", c.classList.contains("hidden") ? "1" : "0"); }
+    return;
+  } else return;
+  renderSel();
+});
+
+(async () => {
+  $("#tags").innerHTML = TAGS.map(t => `<button class="tag" data-t="${t}">${t}</button>`).join("");
+  try { state = await api("/api/state"); }
+  catch (e) { $("#app").innerHTML = `<div class="loading warn">Сервер не отвечает: ${e.message}</div>`; return; }
+  header();
+  next();
+})();
+</script>
+</body>
+</html>
