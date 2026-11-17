@@ -183,3 +183,88 @@ def weighted_precision(
     ]
     lo, hi = np.nanquantile(boots, [0.025, 0.975])
     return point, float(lo), float(hi)
+
+
+def load_config(path: Path = Path("config/config_v1.json")) -> tuple[dict, MaskParams]:
+    cfg = json.loads(path.read_text())
+    params = MaskParams(**cfg["mask"])
+    if params_hash(params) != cfg["mask_params_hash"]:
+        raise ValueError("параметры маски не совпадают с замороженным хэшем")
+    return cfg, params
+
+
+def _bounds_with_unclear(removed: np.ndarray, cls: np.ndarray) -> tuple[float, float, float]:
+    """Precision, если неясные считать ошибками и если считать пожарами; доля неясных."""
+    kept = ~removed
+    fire = np.isin(cls, list(FIRE)) & kept
+    unclear = (cls == 4) & kept
+    labeled = np.isin(cls, list(FIRE | {PERSISTENT, 4})) & kept
+    n = labeled.sum()
+    if not n:
+        return float("nan"), float("nan"), float("nan")
+    return fire.sum() / n, (fire.sum() + unclear.sum()) / n, unclear.sum() / n
+
+
+def report(
+    labeled: pd.DataFrame,
+    removed_by_variant: dict[str, np.ndarray],
+    population: dict[str, int],
+) -> pd.DataFrame:
+    """Строка на вариант фильтра: удалённые источники, удалённые пожары, precision.
+
+    `labeled["stratum"]` и ключи `population` должны совпадать (для TEST обоих
+    лет ключ — «год/страта»).
+    """
+    cls = labeled["class"].to_numpy()
+    rows = []
+    for name, removed in removed_by_variant.items():
+        row = {"variant": name, **score(removed, cls)}
+        row["precision_w"], row["precision_w_lo"], row["precision_w_hi"] = weighted_precision(
+            labeled, removed, population
+        )
+        lo, hi, share = _bounds_with_unclear(removed, cls)
+        row["precision_unclear_as_error"] = lo
+        row["precision_unclear_as_fire"] = hi
+        row["unclear_share_kept"] = share
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def variants(labeled: pd.DataFrame, masks: dict[int, "object"]) -> dict[str, np.ndarray]:
+    """Baseline и маска; маска своя для года каждой точки (без утечки будущего)."""
+    year = labeled["acq_at"].dt.year.to_numpy()
+    removed_mask = np.zeros(len(labeled), bool)
+    for y, m in masks.items():
+        sel = year == y
+        if sel.any():
+            removed_mask[sel] = m.contains_many(labeled.loc[sel, "lat"], labeled.loc[sel, "lon"])
+    return {
+        "без фильтра": np.zeros(len(labeled), bool),
+        "confidence = l": (labeled["confidence"] == "l").to_numpy(),
+        "FIRMS type = 2": (labeled["fire_type"] == 2).to_numpy(),
+        "маска config_v1": removed_mask,
+    }
+
+
+def format_table(df: pd.DataFrame) -> str:
+    def pct(v):
+        return "—" if pd.isna(v) else f"{100 * v:.0f} %"
+
+    lines = [
+        "| вариант | удалено источников | удалено пожаров | precision (точки) "
+        "| precision взвеш. | неясные: ошибка / пожар |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in df.itertuples():
+        lines.append(
+            f"| {r.variant} "
+            f"| {r.persistent_removed_k}/{r.persistent_n} = {pct(r.persistent_removed)} "
+            f"[{pct(r.persistent_removed_lo)}–{pct(r.persistent_removed_hi)}] "
+            f"| {r.fire_removed_k}/{r.fire_n} = {pct(r.fire_removed)} "
+            f"[{pct(r.fire_removed_lo)}–{pct(r.fire_removed_hi)}] "
+            f"| {r.precision_k}/{r.precision_n} = {pct(r.precision)} "
+            f"[{pct(r.precision_lo)}–{pct(r.precision_hi)}] "
+            f"| {pct(r.precision_w)} [{pct(r.precision_w_lo)}–{pct(r.precision_w_hi)}] "
+            f"| {pct(r.precision_unclear_as_error)} / {pct(r.precision_unclear_as_fire)} |"
+        )
+    return "\n".join(lines)
