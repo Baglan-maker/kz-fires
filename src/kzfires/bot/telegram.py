@@ -28,9 +28,10 @@ class Telegram:
     def __repr__(self) -> str:
         return "Telegram(token=***)"
 
-    def call(self, method: str, timeout: float = 60, **params) -> dict | list:
+    def call(self, method: str, http_timeout: float = 60, **params) -> dict | list:
+        # http_timeout, а не timeout: у getUpdates есть собственный параметр timeout
         try:
-            r = self._s.post(f"{API}/bot{self._token}/{method}", json=params, timeout=timeout)
+            r = self._s.post(f"{API}/bot{self._token}/{method}", json=params, timeout=http_timeout)
             data = r.json()
         except (requests.RequestException, ValueError) as e:
             raise TelegramError(f"{method}: {type(e).__name__}") from None
@@ -49,7 +50,7 @@ class Telegram:
         params = {"timeout": timeout, "allowed_updates": ["message", "callback_query"]}
         if offset is not None:
             params["offset"] = offset
-        return self.call("getUpdates", timeout=timeout + 10, **params)
+        return self.call("getUpdates", http_timeout=timeout + 10, **params)
 
     def answer_callback(self, callback_id: str) -> None:
         self.call("answerCallbackQuery", callback_query_id=callback_id)

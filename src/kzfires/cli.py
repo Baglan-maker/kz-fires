@@ -136,6 +136,26 @@ def cmd_report(set_name: str) -> int:
     return 0
 
 
+def cmd_ingest(loop: bool, interval_s: int) -> int:
+    import logging
+    import time
+
+    from kzfires import ingest
+    from kzfires.db.session import connect
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    with connect() as conn:
+        while True:
+            res = ingest.run_once(conn)
+            for src, r in res.items():
+                print(f"{src}: {r}", flush=True)
+            at = ingest.last_data_at(conn)
+            print(f"последняя точка в Казахстане: {at}", flush=True)
+            if not loop:
+                return 0
+            time.sleep(interval_s)
+
+
 def cmd_bot() -> int:
     import logging
 
@@ -149,9 +169,16 @@ def cmd_bot() -> int:
     settings = load_settings()
     tg = Telegram(settings.telegram_bot_token)
     me = tg.call("getMe")
-    print(f"бот @{me['username']} запущен, Ctrl+C — остановить")
+    print(f"бот @{me['username']} запущен, Ctrl+C — остановить", flush=True)
+    # демо считается один раз при старте: пересчёт на каждый /demo занимает секунды
+    demo = retro_cli.abai_demo_messages()
+    print(f"демо готово: {len(demo)} сообщения", flush=True)
     with connect() as conn:
-        bot = Bot(tg, DbStore(conn), demo=lambda _sub: retro_cli.abai_demo_messages())
+        from kzfires.ingest import last_data_at
+
+        bot = Bot(
+            tg, DbStore(conn), demo=lambda _sub: demo, last_data_at=lambda: last_data_at(conn)
+        )
         bot.poll_forever()
     return 0
 
@@ -196,7 +223,9 @@ def cmd_label(set_name: str, pass_no: int, port: int, open_browser: bool) -> int
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="kzfires")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("ingest", help="один опрос FIRMS NRT")
+    ing = sub.add_parser("ingest", help="опрос FIRMS NRT")
+    ing.add_argument("--loop", action="store_true", help="опрашивать без остановки")
+    ing.add_argument("--interval", type=int, default=180)
     sub.add_parser("retro", help="ретро-прогон по замороженной конфигурации")
     sub.add_parser("border", help="загрузить границу Казахстана в БД и посчитать in_kz")
     smp = sub.add_parser("sample", help="выборка точек для разметки")
@@ -224,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
             m = retro_cli.season(year)
             print(json.dumps(m, ensure_ascii=False, indent=1, default=str))
         return 0
+    if args.cmd == "ingest":
+        return cmd_ingest(args.loop, args.interval)
     if args.cmd == "bot":
         return cmd_bot()
     if args.cmd == "report":

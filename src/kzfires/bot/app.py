@@ -5,6 +5,7 @@
 
 import datetime as dt
 import logging
+import time
 from dataclasses import dataclass, field
 
 import psycopg
@@ -61,6 +62,9 @@ class DbStore:
             (chat_id, sub.lon, sub.lat, sub.radius_km),
         )
         self.conn.commit()
+
+    def rollback(self) -> None:
+        self.conn.rollback()
 
     def get(self, chat_id: int) -> Subscription | None:
         row = self.conn.execute(
@@ -131,8 +135,9 @@ class Bot:
         p.lat, p.lon = round(float(loc["latitude"]), 2), round(float(loc["longitude"]), 2)
         log.info("location chat=%s", chat)
         kb = {"inline_keyboard": [[{"text": f"{r} км", "callback_data": f"r:{r}"} for r in RADII]]}
-        self.tg.send(chat, t.ASK_RADIUS, {"remove_keyboard": True})
-        self.tg.send(chat, "Радиус:", kb)
+        # убрать кнопку геопозиции и показать кнопки радиуса одним сообщением нельзя
+        self.tg.send(chat, "Геопозиция получена.", {"remove_keyboard": True})
+        self.tg.send(chat, t.ASK_RADIUS, kb)
 
     def _callback(self, cq: dict) -> None:
         chat = cq["message"]["chat"]["id"]
@@ -154,18 +159,27 @@ class Bot:
             log.info("subscribed chat=%s radius=%s", chat, p.radius)
             self.tg.send(chat, t.SUBSCRIBED.format(radius=p.radius))
 
-    def poll_forever(self) -> None:
+    def poll_once(self, offset: int | None, timeout: int = 50) -> int | None:
+        for u in self.tg.updates(offset, timeout=timeout):
+            offset = u["update_id"] + 1
+            try:
+                self.handle(u)
+            except Exception as e:  # noqa: BLE001
+                # одно сломанное сообщение не должно ронять бота; текст ошибки может
+                # содержать данные пользователя, поэтому пишем только тип
+                log.warning("update %s failed: %s", u.get("update_id"), type(e).__name__)
+                if hasattr(self.store, "rollback"):
+                    self.store.rollback()
+        return offset
+
+    def poll_forever(self, sleep=time.sleep) -> None:
         offset = None
         while True:
             try:
-                for u in self.tg.updates(offset):
-                    offset = u["update_id"] + 1
-                    try:
-                        self.handle(u)
-                    except TelegramError as e:
-                        log.warning("send failed: %s", e)
+                offset = self.poll_once(offset)
             except TelegramError as e:
                 log.warning("poll failed: %s", e)
+                sleep(5)
 
 
 def _location_keyboard() -> dict:

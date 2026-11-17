@@ -141,3 +141,48 @@ def test_token_hidden_in_errors():
         tg.send(1, "x")
     assert TOKEN not in str(ei.value)
     assert TOKEN not in repr(tg)
+
+
+class RecordingSession:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    def post(self, url, json=None, timeout=None):
+        self.calls.append((url.rsplit("/", 1)[-1], json, timeout))
+        return FakeResp({"ok": True, "result": self.result})
+
+
+def test_get_updates_sends_long_poll_timeout_separately():
+    s = RecordingSession([])
+    Telegram(TOKEN, s).updates(offset=5, timeout=30)
+    method, body, http_timeout = s.calls[0]
+    assert method == "getUpdates"
+    assert body["timeout"] == 30
+    assert body["offset"] == 5
+    assert http_timeout > 30
+
+
+class UpdatesTg(FakeTg):
+    def __init__(self, batch):
+        super().__init__()
+        self.batch = batch
+
+    def updates(self, offset, timeout=50):
+        return self.batch
+
+
+def test_poll_survives_broken_update(caplog):
+    class Boom(MemoryStore):
+        def get(self, chat_id):
+            raise RuntimeError(f"secret {LAT}")
+
+    batch = [
+        {"update_id": 1, "message": {"chat": {"id": 1}, "text": "/status"}},
+        {"update_id": 2, "message": {"chat": {"id": 2}, "text": "/start"}},
+    ]
+    tg = UpdatesTg(batch)
+    bot = Bot(tg, Boom())
+    assert bot.poll_once(None) == 3
+    assert tg.sent[-1][1] == t.WELCOME
+    assert str(LAT) not in caplog.text

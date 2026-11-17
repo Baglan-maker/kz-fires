@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup db-up db-down migrate border sample practice label check bot report test lint fmt ingest retro
+.PHONY: setup db-up db-down migrate border sample practice label check bot report test lint fmt ingest live retro
 
 setup:
 	python3.12 -m venv .venv
@@ -52,6 +52,9 @@ report:
 
 ingest:
 	$(PY) -m kzfires.cli ingest
+
+live:
+	$(PY) -m kzfires.cli ingest --loop
 
 retro:
 	$(PY) -m kzfires.cli retro
