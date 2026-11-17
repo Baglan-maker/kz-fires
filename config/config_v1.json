@@ -1,0 +1,39 @@
+{
+  "name": "config_v1",
+  "mask": {
+    "cell_size_m": 2000,
+    "min_detections": 5,
+    "buffer_cells": 1,
+    "min_months": 3,
+    "min_years": 1,
+    "lookback_years": 3
+  },
+  "mask_params_hash": "391bc820c08bad61",
+  "mask_source": "SNPP SP, [cutoff - 3y, cutoff)",
+  "selected_on": "DEV-2023, labels/labels_dev.csv",
+  "dev_labels_sha256": "95b05153c47950d9304f22a3aae18551a5b7dc70ea2ce1323c4baa453ac0bead",
+  "dev_labels_commit": "78d2a6f",
+  "rule": "max persistent removed s.t. fires removed <= floor(0.05 n_fire)",
+  "events": {
+    "eps_km": 2.0,
+    "tau_h": 12.0,
+    "min_samples": 1,
+    "close_after_h": 48.0
+  },
+  "threat": {
+    "toward_max_delta_deg": 45.0,
+    "across_max_delta_deg": 135.0,
+    "min_wind_speed_ms": 2.0
+  },
+  "decision": {
+    "min_points": 2,
+    "max_age_h": 12.0,
+    "max_messages_per_24h": 3,
+    "min_gap_between_messages_h": 3.0
+  },
+  "subscribers": {
+    "n": 300,
+    "radius_km": 15.0,
+    "seed": 20261005
+  }
+}
