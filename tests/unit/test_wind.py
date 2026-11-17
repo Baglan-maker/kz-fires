@@ -2,8 +2,6 @@ import pytest
 
 from kzfires.core.threat import wind_to_deg
 
-pytestmark = pytest.mark.xfail(raises=NotImplementedError, reason="ещё не реализовано")
-
 
 @pytest.mark.parametrize(
     "dir_from, expected",

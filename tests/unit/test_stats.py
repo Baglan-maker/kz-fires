@@ -2,8 +2,6 @@ import pytest
 
 from kzfires.eval.stats import wilson
 
-pytestmark = pytest.mark.xfail(raises=NotImplementedError, reason="ещё не реализовано")
-
 
 def test_wilson_reference_value():
     lo, hi = wilson(270, 300)

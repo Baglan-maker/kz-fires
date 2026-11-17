@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from kzfires.core.events import Event
+from kzfires.core.geo import angdiff, bearing_deg, haversine_km
 
 WindClass = Literal["toward", "across", "away", "unknown"]
 Level = Literal["L0", "L1", "L2"]
@@ -41,7 +42,28 @@ class Threat:
 
 def wind_to_deg(dir_from: float) -> float:
     """Куда дует ветер, по направлению «откуда»."""
-    raise NotImplementedError
+    return (dir_from + 180) % 360
+
+
+def nearest_point(event: Event, zone: Zone) -> tuple[float, float, float]:
+    pts = event.points or [(event.centroid_lat, event.centroid_lon)]
+    best = min(pts, key=lambda p: haversine_km(zone.lat, zone.lon, p[0], p[1]))
+    return best[0], best[1], haversine_km(zone.lat, zone.lon, best[0], best[1])
+
+
+def wind_class(wind: Wind, theta: float, params: ThreatParams) -> WindClass:
+    if wind.speed_ms is None or wind.from_deg is None:
+        return "unknown"
+    # слабый ветер не задаёт направления: «в вашу сторону» не пишем
+    if wind.speed_ms < params.min_wind_speed_ms:
+        return "unknown"
+    # ветер несёт дым от события к зоне, когда дует оттуда, где событие
+    delta = angdiff(wind.from_deg, theta)
+    if delta <= params.toward_max_delta_deg:
+        return "toward"
+    if delta <= params.across_max_delta_deg:
+        return "across"
+    return "away"
 
 
 def assess(
@@ -52,4 +74,18 @@ def assess(
     params: ThreatParams,
     in_mask: bool = False,
 ) -> Threat:
-    raise NotImplementedError
+    lat, lon, dist = nearest_point(event, zone)
+    theta = bearing_deg(zone.lat, zone.lon, lat, lon)
+    wc = wind_class(wind, theta, params)
+    reasons: dict = {}
+    if in_mask:
+        reasons["in_mask"] = True
+    if dist > zone.radius_km:
+        reasons["out_of_radius"] = True
+    if reasons:
+        level: Level = "L0"
+    elif wc == "toward":
+        level = "L2"
+    else:
+        level = "L1"
+    return Threat(round(dist, 3), round(theta, 1), wc, land_cover, level, reasons)
