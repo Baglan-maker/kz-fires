@@ -50,6 +50,27 @@ def cmd_sample() -> int:
     return 0
 
 
+def cmd_sample_test(years: list[int]) -> int:
+    from kzfires.eval import sample
+    from kzfires.sources.osm import load_settlements
+    from kzfires.sources.regions import load_regions
+    from kzfires.sources.worldcover import majority_classes
+
+    regions, settlements = load_regions(), load_settlements()
+    for year in years:
+        set_name = f"test{year}"
+        frame = sample.build_frame(year, regions, settlements, majority_classes)
+        selected, shortfall = sample.draw(frame, sample.DEV_QUOTAS, sample.SEED + year)
+        todo = sample.to_todo(selected, set_name)
+        path = sample.write_sample(
+            todo, frame, shortfall, set_name, year, sample.DEV_QUOTAS, sample.SEED + year, 0
+        )
+        print(f"TEST {year}: рамка {len(frame)} точек, выбрано {len(todo)} -> {path}")
+        if shortfall:
+            print(f"недобор по стратам: {shortfall}")
+    return 0
+
+
 def cmd_label(set_name: str, pass_no: int, port: int, open_browser: bool) -> int:
     from kzfires.labeling import practice
     from kzfires.labeling.server import Session, serve
@@ -63,11 +84,20 @@ def cmd_label(set_name: str, pass_no: int, port: int, open_browser: bool) -> int
             pass_no=1,
             practice=True,
         )
+    elif set_name == "check":
+        # слепая проверка 20 точек DEV человеком: карточки те же, что у DEV
+        session = Session(
+            set_name="dev",
+            todo_path=Path("labels/labels_todo_dev_check.csv"),
+            labels_path=Path("labels/labels_dev_review.csv"),
+            cache_dir=CACHE_DIR / "dev",
+            pass_no=1,
+        )
     else:
         session = Session(
             set_name=set_name,
             todo_path=Path(f"labels/labels_todo_{set_name}.csv"),
-            labels_path=Path(f"labels/labels_{set_name}.csv"),
+            labels_path=Path(f"labels/labels_{set_name}_review.csv"),
             cache_dir=CACHE_DIR / set_name,
             pass_no=pass_no,
         )
@@ -84,9 +114,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("ingest", help="один опрос FIRMS NRT")
     sub.add_parser("retro", help="ретро-прогон по замороженной конфигурации")
     sub.add_parser("border", help="загрузить границу Казахстана в БД и посчитать in_kz")
-    sub.add_parser("sample", help="выборка точек DEV и тренировочный набор для разметки")
+    smp = sub.add_parser("sample", help="выборка точек для разметки")
+    smp.add_argument("--test", action="store_true", help="TEST: сезоны 2024 и 2025")
     lab = sub.add_parser("label", help="страница разметки в браузере")
-    lab.add_argument("--set", default="dev", choices=["dev", "test", "practice"])
+    lab.add_argument(
+        "--set", default="dev", choices=["dev", "test2024", "test2025", "practice", "check"]
+    )
     lab.add_argument("--pass", dest="pass_no", type=int, default=1, choices=[1, 2])
     lab.add_argument("--port", type=int, default=8765)
     lab.add_argument("--no-browser", action="store_true")
@@ -94,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "border":
         return cmd_border()
     if args.cmd == "sample":
-        return cmd_sample()
+        return cmd_sample_test([2024, 2025]) if args.test else cmd_sample()
     if args.cmd == "label":
         return cmd_label(args.set, args.pass_no, args.port, not args.no_browser)
     print(f"{args.cmd}: ещё не реализовано", file=sys.stderr)

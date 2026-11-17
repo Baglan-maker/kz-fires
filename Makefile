@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup db-up db-down migrate border sample practice label test lint fmt ingest retro
+.PHONY: setup db-up db-down migrate border sample practice label check test lint fmt ingest retro
 
 setup:
 	python3.12 -m venv .venv
@@ -29,6 +29,9 @@ practice:
 
 label:
 	$(PY) -m kzfires.cli label --set dev
+
+check:
+	$(PY) -m kzfires.cli label --set check
 
 test:
 	$(PY) -m pytest
