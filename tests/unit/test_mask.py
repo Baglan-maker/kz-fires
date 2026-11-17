@@ -2,11 +2,8 @@ import datetime as dt
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from kzfires.core.mask import MaskParams, build_mask
-
-pytestmark = pytest.mark.xfail(raises=NotImplementedError, reason="ещё не реализовано")
 
 CUTOFF = dt.datetime(2023, 1, 1, tzinfo=dt.UTC)
 OLD_FLARE = (47.10, 51.90)  # синтетика: горит каждый месяц 2019–2022
