@@ -77,8 +77,10 @@ def build_mask(hotspots: pd.DataFrame, cutoff: dt.datetime, params: MaskParams) 
     """
     start = cutoff.replace(year=cutoff.year - params.lookback_years)
     at = pd.to_datetime(hotspots["acq_at"], utc=True)
-    win = hotspots.loc[(at >= start) & (at < cutoff)]
-    at = at.loc[win.index]
+    sel = ((at >= start) & (at < cutoff)).to_numpy()
+    # по позиции, а не по индексу: у склеенных таблиц индекс может повторяться
+    win = hotspots.iloc[np.nonzero(sel)[0]]
+    at = at.iloc[np.nonzero(sel)[0]]
     if win.empty:
         empty = pd.DataFrame(columns=["ix", "iy", "n_detections", "n_months", "n_years"])
         return Mask(empty, params, cutoff)
