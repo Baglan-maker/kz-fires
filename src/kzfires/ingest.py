@@ -2,13 +2,14 @@
 
 import datetime as dt
 import logging
+from pathlib import Path
 
 import psycopg
 
 from kzfires.config import KZ_BBOX, SATELLITES
 from kzfires.core.freshness import source_state
 from kzfires.sources import firms
-from kzfires.sources.border import load_border, mark_in_kz
+from kzfires.sources.border import BORDER_PATH, load_border, mark_in_kz
 
 log = logging.getLogger(__name__)
 
@@ -60,8 +61,9 @@ def run_once(
     fetch=firms.fetch_area,
     status=firms.mapkey_status,
     commit: bool = True,
+    border_path: Path = BORDER_PATH,
 ) -> dict:
-    load_border(conn)
+    load_border(conn, border_path)
     try:
         before = status()
     except firms.FirmsError as e:
