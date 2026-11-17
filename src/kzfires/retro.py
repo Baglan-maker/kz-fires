@@ -35,7 +35,20 @@ class RetroResult:
     subscribers: list[Subscriber] = field(default_factory=list)
 
 
+def unique_settlements(settlements):
+    """В OSM один посёлок бывает и точкой, и полигоном: склеиваем по месту и имени."""
+    key = pd.DataFrame(
+        {
+            "lat": settlements.geometry.y.round(2),
+            "lon": settlements.geometry.x.round(2),
+            "name": settlements["name"].fillna(""),
+        }
+    )
+    return settlements.loc[~key.duplicated().to_numpy()].reset_index(drop=True)
+
+
 def virtual_subscribers(settlements, n: int, radius_km: float, seed: int) -> list[Subscriber]:
+    settlements = unique_settlements(settlements)
     rng = np.random.default_rng(seed)
     idx = np.sort(rng.choice(len(settlements), size=n, replace=False))
     out = []

@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup db-up db-down migrate border sample practice label check test lint fmt ingest retro
+.PHONY: setup db-up db-down migrate border sample practice label check bot report test lint fmt ingest retro
 
 setup:
 	python3.12 -m venv .venv
@@ -43,6 +43,12 @@ lint:
 fmt:
 	$(PY) -m ruff check --fix .
 	$(PY) -m ruff format .
+
+bot:
+	$(PY) -m kzfires.cli bot
+
+report:
+	$(PY) -m kzfires.cli report --set dev
 
 ingest:
 	$(PY) -m kzfires.cli ingest

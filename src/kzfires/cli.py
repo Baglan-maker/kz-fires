@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -135,6 +136,26 @@ def cmd_report(set_name: str) -> int:
     return 0
 
 
+def cmd_bot() -> int:
+    import logging
+
+    from kzfires import retro_cli
+    from kzfires.bot.app import Bot, DbStore
+    from kzfires.bot.telegram import Telegram
+    from kzfires.config import load_settings
+    from kzfires.db.session import connect
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    settings = load_settings()
+    tg = Telegram(settings.telegram_bot_token)
+    me = tg.call("getMe")
+    print(f"бот @{me['username']} запущен, Ctrl+C — остановить")
+    with connect() as conn:
+        bot = Bot(tg, DbStore(conn), demo=lambda _sub: retro_cli.abai_demo_messages())
+        bot.poll_forever()
+    return 0
+
+
 def cmd_label(set_name: str, pass_no: int, port: int, open_browser: bool) -> int:
     from kzfires.labeling import practice
     from kzfires.labeling.server import Session, serve
@@ -180,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("border", help="загрузить границу Казахстана в БД и посчитать in_kz")
     smp = sub.add_parser("sample", help="выборка точек для разметки")
     smp.add_argument("--test", action="store_true", help="TEST: сезоны 2024 и 2025")
+    sub.add_parser("bot", help="Telegram-бот (long polling)")
     rep = sub.add_parser("report", help="метрики фильтра на размеченных точках")
     rep.add_argument("--set", default="dev", choices=["dev", "test"])
     lab = sub.add_parser("label", help="страница разметки в браузере")
@@ -194,6 +216,16 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_border()
     if args.cmd == "sample":
         return cmd_sample_test([2024, 2025]) if args.test else cmd_sample()
+    if args.cmd == "retro":
+        from kzfires import retro_cli
+
+        retro_cli.abai()
+        for year in (2024, 2025):
+            m = retro_cli.season(year)
+            print(json.dumps(m, ensure_ascii=False, indent=1, default=str))
+        return 0
+    if args.cmd == "bot":
+        return cmd_bot()
     if args.cmd == "report":
         return cmd_report(args.set)
     if args.cmd == "label":
